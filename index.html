@@ -1,10 +1,12 @@
 <!doctype html>
-<html lang="en">
-<head>
+<html lang="en"><head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Fairprice Collections | Retail & Tech Services</title>
+  <title>Fairprice Collections | Retail &amp; Tech Services</title>
   <style>
+    .availability { display:inline-block; margin:7px 0; padding:4px 9px; border-radius:999px; font-size:.78rem; font-weight:800; background:#dcfce7; color:#166534; }
+    .availability.incoming { background:#fef3c7; color:#92400e; }
+    .estimated { margin:4px 0 10px !important; font-size:.9rem; color:#92400e !important; font-weight:700; }
     :root { --ink:#17231d; --green:#166534; --lime:#d9f99d; --cream:#fffdf6; --orange:#f97316; }
     * { box-sizing:border-box; }
     body { margin:0; font-family:Arial, Helvetica, sans-serif; color:var(--ink); background:var(--cream); line-height:1.5; }
@@ -101,23 +103,8 @@
       <div class="eyebrow" style="color:#166534">Available stock</div>
       <h2>Browse our catalogue.</h2>
       <p class="intro">See something you like? Tap “Order on WhatsApp” to ask about availability and delivery.</p>
-      <div class="filter-row" id="filters"></div>
-      <div class="products" id="products"></div>
-    </section>
-    <section class="admin" id="admin">
-      <div class="eyebrow">Owner stock panel</div>
-      <h2>Add a product to your catalogue.</h2>
-      <p>Use this page to add your available stock. Products are saved in this browser.</p>
-      <form class="stock-form" id="stockForm">
-        <label>Product name<input id="name" required placeholder="e.g. HP Pavilion 15"></label>
-        <label>Price<input id="price" required placeholder="e.g. K5,500"></label>
-        <label>Category<select id="category"><option>Laptops</option><option>Clothing</option><option>Accessories</option><option>Software Services</option><option>Other</option></select></label>
-        <label>Availability<select id="availability"><option>Available</option><option>Sold out</option></select></label>
-        <label class="wide">Product photo<input id="photo" type="file" accept="image/*"></label>
-        <label class="wide">Short description<textarea id="description" rows="3" placeholder="Add key details, size, specifications, colour, etc."></textarea></label>
-        <button class="button" type="submit">Add to catalogue</button>
-      </form>
-      <ul class="stock-list" id="stockList"></ul>
+      <div class="filter-row" id="filters"><button class="filter active" onclick="selectedCategory='All';render()">All</button></div>
+      <div class="products" id="products"><div class="empty">No products in this category yet. Add your first item in the owner stock panel below.</div></div>
     </section>
     <section class="contact" id="contact">
       <h2>Ready to find what you need?</h2>
@@ -142,8 +129,8 @@
       const categories = ['All', ...new Set(allProducts.map(p => p.category))];
       document.getElementById('filters').innerHTML = categories.map(c => `<button class="filter ${c === selectedCategory ? 'active' : ''}" onclick="selectedCategory='${c}';render()">${c}</button>`).join('');
       const shown = selectedCategory === 'All' ? allProducts : allProducts.filter(p => p.category === selectedCategory);
-      document.getElementById('products').innerHTML = shown.length ? shown.map(p => `<article class="card product"><img class="product-image" src="${p.photo || placeholder}" alt="${p.name}"><div class="product-copy"><h3>${p.name}</h3><div class="price">${p.price}</div><p>${p.description || p.availability}</p><p><a class="order" href="${orderLink(p)}">Order on WhatsApp →</a></p></div></article>`).join('') : '<div class="empty">No products in this category yet. Add your first item in the owner stock panel below.</div>';
-      document.getElementById('stockList').innerHTML = products.length ? products.map((p,i) => `<li><span><strong>${p.name}</strong> — ${p.price} · ${p.availability}</span><button class="remove" onclick="removeProduct(${i})">Remove</button></li>`).join('') : '';
+      document.getElementById('products').innerHTML = shown.length ? shown.map(p => { const incoming = String(p.availability || '').toLowerCase() === 'to be available'; const status = p.availability || 'Available'; const estimated = incoming && p.estimatedAvailability ? `<p class="estimated">Estimated available: ${p.estimatedAvailability}</p>` : ''; const action = incoming ? 'Pre-order on WhatsApp →' : 'Order on WhatsApp →'; return `<article class="card product"><img class="product-image" src="${p.photo || placeholder}" alt="${p.name}"><div class="product-copy"><h3>${p.name}</h3><div class="price">${p.price}</div><span class="availability ${incoming ? 'incoming' : ''}">${status}</span>${estimated}<p>${p.description || ''}</p><p><a class="order" href="${orderLink(p)}">${action}</a></p></div></article>`; }).join('') : '<div class="empty">Our catalogue is being updated. Please message us on WhatsApp to ask what is available.</div>';
+      document.getElementById('stockList')?.innerHTML = products.length ? products.map((p,i) => `<li><span><strong>${p.name}</strong> — ${p.price} · ${p.availability}</span><button class="remove" onclick="removeProduct(${i})">Remove</button></li>`).join('') : '';
     }
     function removeProduct(index) { products.splice(index, 1); save(); render(); }
     function openCategory(category) { selectedCategory = category; render(); }
@@ -152,11 +139,11 @@
         const response = await fetch(catalogueApi);
         if (!response.ok) throw new Error('Catalogue could not load');
         const data = await response.json();
-        remoteProducts = data.map(item => ({ name:item.name, price:item.price, category:item.category, availability:item.availability, description:item.description, photo:item.imageUrl }));
+        remoteProducts = data.map(item => ({ name:item.name, price:item.price, category:item.category, availability:item.availability, estimatedAvailability:item.estimatedAvailability || item.estimatedAvailable || item.expectedAvailable || '', description:item.description, photo:item.imageUrl }));
         render();
       } catch (error) { console.info('Google catalogue will appear when stock is added.'); }
     }
-    document.getElementById('stockForm').addEventListener('submit', event => {
+    document.getElementById('stockForm')?.addEventListener('submit', event => {
       event.preventDefault(); const file = document.getElementById('photo').files[0];
       const add = photo => { products.unshift({ name:document.getElementById('name').value, price:document.getElementById('price').value, category:document.getElementById('category').value, availability:document.getElementById('availability').value, description:document.getElementById('description').value, photo }); save(); event.target.reset(); render(); };
       if (file) { const reader = new FileReader(); reader.onload = e => add(e.target.result); reader.readAsDataURL(file); } else add('');
@@ -164,5 +151,6 @@
     render();
     loadGoogleCatalogue();
   </script>
-</body>
-</html>
+
+
+</body></html>
