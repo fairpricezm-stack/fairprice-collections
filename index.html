@@ -134,14 +134,16 @@
     }
     function removeProduct(index) { products.splice(index, 1); save(); render(); }
     function openCategory(category) { selectedCategory = category; render(); }
-    async function loadGoogleCatalogue() {
-      try {
-        const response = await fetch(catalogueApi);
-        if (!response.ok) throw new Error('Catalogue could not load');
-        const data = await response.json();
+    function loadGoogleCatalogue() {
+      const callbackName = 'fairpriceCatalogueCallback';
+      window[callbackName] = data => {
         remoteProducts = data.map(item => ({ name:item.name, price:item.price, category:item.category, availability:item.availability, estimatedAvailability:item.estimatedAvailability || item.estimatedAvailable || item.expectedAvailable || '', description:item.description, photo:item.imageUrl }));
         render();
-      } catch (error) { console.info('Google catalogue will appear when stock is added.'); }
+      };
+      const script = document.createElement('script');
+      script.src = catalogueApi + '?callback=' + callbackName + '&_=' + Date.now();
+      script.onerror = () => console.info('Google catalogue is being updated.');
+      document.head.appendChild(script);
     }
     document.getElementById('stockForm')?.addEventListener('submit', event => {
       event.preventDefault(); const file = document.getElementById('photo').files[0];
